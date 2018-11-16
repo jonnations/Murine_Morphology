@@ -1,0 +1,799 @@
+---
+title: "MCMCglmm_Philippine_Models"
+author: "Nations"
+date: "11/16/2018"
+output: html_document
+---
+MCMCglmm Models for Philippine data. .Rmd associated with manuscript submission.
+
+
+This script uses nations_tree.nwk and Phil_index.csv, also found in this github repository.
+
+This script runs 4 chains for each model.
+m.model = 4 cahins as output
+s.model = 4 chains as mcmc.list
+z.model = dataframe of all 4 chains togehter as one. needed for extracting estimates and plotting
+
+This also generated Gelman-RuBIn Statistics for each. THese can be copy/pasted into a spread sheet as one of the supplementary materials for the manuscript.
+
+
+
+
+```{r}
+library(ape)
+library(geiger)
+library(phytools)
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(MCMCglmm)
+library(tibble)
+library(tidyr)
+library(coda)
+library(parallel)
+library(ggridges)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/User/.....")
+```
+
+
+tree
+```{r}
+tree <- read.newick("nations_tree.nwk")
+is.ultrametric(tree)
+```
+inverse covariance mmatrix
+```{r}
+# inverse of sigma matrix of phylogenetic correlation
+inv_phylo_mat <- inverseA(tree, nodes = "TIPS", scale = TRUE) 
+```
+
+read in morphological data
+```{r}
+
+data <- read.csv("Phil_index.csv", header=T)
+# reorder data by tree labels
+data <- data[order(factor(data$Species, levels = tree$tip.label)), ]
+```
+
+### Run Models
+
+MANUS
+```{r}
+prior_manus <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~MANUS, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.MANUS <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ MANUS,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_manus,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 2200, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+```
+
+Bind 4 MCMCglmm Chains
+```{r}
+s.MANUS <- lapply(m.MANUS, function(m) m$Sol)
+s.MANUS <- do.call(mcmc.list, s.MANUS)
+z.MANUS <- do.call(rbind.data.frame, s.MANUS)
+
+summary(s.MANUS)
+```
+
+Gelman-Rubin Potential Scale Reduction Factor
+```{r}
+gelman.diag(s.MANUS[,1:2])
+```
+
+
+### Repeat for all measurements
+SMI
+```{r}
+prior_SMI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~SMI, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.SMI <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ SMI,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_SMI,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 2200, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.SMI <- lapply(m.SMI, function(m) m$Sol)
+s.SMI <- do.call(mcmc.list, s.SMI)
+z.SMI <- do.call(rbind.data.frame, s.SMI)
+
+summary(s.SMI)
+```
+
+```{r}
+gelman.diag(s.SMI[,1:2])
+```
+
+BI
+```{r}
+prior_BI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~BI, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.BI <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ BI,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_BI,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 2200, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.BI <- lapply(m.BI, function(m) m$Sol)
+s.BI <- do.call(mcmc.list, s.BI)
+z.BI <- do.call(rbind.data.frame, s.BI)
+summary(s.BI)
+```
+
+```{r}
+gelman.diag(s.BI[,1:2])
+```
+
+HRI
+```{r}
+prior_HRI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~HRI, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.HRI <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ HRI,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_HRI,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 2200, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.HRI <- lapply(m.HRI, function(m) m$Sol)
+s.HRI <- do.call(mcmc.list, s.HRI)
+z.HRI <- do.call(rbind.data.frame, s.HRI)
+
+summary(s.HRI)
+```
+
+```{r}
+gelman.diag(s.HRI[,1:2])
+```
+
+HEB
+```{r}
+prior_HEB <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~HEB, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.HEB <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ HEB,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_HEB,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 2200, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.HEB <- lapply(m.HEB, function(m) m$Sol)
+s.HEB <- do.call(mcmc.list, s.HEB)
+z.HEB <- do.call(rbind.data.frame, s.HEB)
+
+summary(s.HEB)
+```
+
+```{r}
+gelman.diag(s.HEB[,1:2])
+```
+
+
+OLI
+```{r}
+prior_OLI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~OLI, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.OLI <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ OLI,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_OLI,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 2200, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.OLI <- lapply(m.OLI, function(m) m$Sol)
+s.OLI <- do.call(mcmc.list, s.OLI)
+z.OLI <- do.call(rbind.data.frame, s.OLI)
+
+summary(s.OLI)
+```
+
+```{r}
+gelman.diag(s.OLI[,1:2])
+```
+
+
+URI
+```{r}
+prior_URI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~URI, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.URI <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ URI,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_URI,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 2200, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.URI <- lapply(m.URI, function(m) m$Sol)
+s.URI <- do.call(mcmc.list, s.URI)
+z.URI <- do.call(rbind.data.frame, s.URI)
+
+summary(s.URI)
+```
+
+```{r}
+gelman.diag(s.URI[,1:2])
+```
+
+CI
+```{r}
+prior_CI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~CI, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.CI <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ CI,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_CI,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 2200, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.CI <- lapply(m.CI, function(m) m$Sol)
+s.CI <- do.call(mcmc.list, s.CI)
+z.CI <- do.call(rbind.data.frame, s.CI)
+
+summary(s.CI)
+```
+
+```{r}
+gelman.diag(s.CI[,1:2])
+```
+
+
+FRI
+```{r}
+prior_FRI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~FRI, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.FRI <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ FRI,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_FRI,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 2200, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.FRI <- lapply(m.FRI, function(m) m$Sol)
+s.FRI <- do.call(mcmc.list, s.FRI)
+z.FRI <- do.call(rbind.data.frame, s.FRI)
+
+summary(s.FRI)
+```
+
+```{r}
+gelman.diag(s.FRI[,1:2])
+```
+
+```{r}
+save.image(file = "20180930_Index_individual.R")
+```
+
+
+
+
+GI
+```{r}
+#MANUS + SMI + BI + HRI + HEB + OLI + URI + CI + FRI + GI + FEB + TRI + TSI + PES + IM + SI + TAIL
+prior_gi <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~ GI, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.GI <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ GI,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_gi,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 1500, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+s.GI <- lapply(m.GI, function(m) m$Sol)
+s.GI <- do.call(mcmc.list, s.GI)
+z.GI <- do.call(rbind.data.frame, s.GI)
+
+summary(s.GI)
+```
+
+```{r}
+gelman.diag(s.GI[,1:2])
+```
+
+FEB
+```{r}
+#MANUS + SMI + BI + HRI + HEB + OLI + URI + CI + FRI + GI + FEB + TRI + TSI + PES + IM + SI + TAIL
+prior_feb <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~ FEB, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.FEB <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ FEB,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_feb,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 1500, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.FEB <- lapply(m.FEB, function(m) m$Sol)
+s.FEB <- do.call(mcmc.list, s.FEB)
+z.FEB <- do.call(rbind.data.frame, s.FEB)
+
+summary(s.FEB)
+```
+
+```{r}
+gelman.diag(s.FEB[,1:2])
+```
+
+TRI
+```{r}
+prior_tri <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~ TRI, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.TRI <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ TRI,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_tri,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 1500, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.TRI <- lapply(m.TRI, function(m) m$Sol)
+s.TRI <- do.call(mcmc.list, s.TRI)
+z.TRI <- do.call(rbind.data.frame, s.TRI)
+
+summary(s.TRI)
+```
+
+```{r}
+gelman.diag(s.TRI[,1:2])
+```
+
+TSI
+```{r}
+prior_tsi <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~ TSI, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.TSI <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ TSI,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_tsi,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 1500, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.TSI <- lapply(m.TSI, function(m) m$Sol)
+s.TSI <- do.call(mcmc.list, s.TSI)
+z.TSI <- do.call(rbind.data.frame, s.TSI)
+
+summary(s.TSI)
+```
+
+```{r}
+gelman.diag(s.TSI[,1:2])
+```
+
+PES
+```{r}
+prior_pes <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~ PES, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.PES <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ PES,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_pes,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 1500, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.PES <- lapply(m.PES, function(m) m$Sol)
+s.PES <- do.call(mcmc.list, s.PES)
+z.PES <- do.call(rbind.data.frame, s.PES)
+
+summary(s.PES)
+```
+
+```{r}
+gelman.diag(s.PES[,1:2])
+```
+
+IM
+```{r}
+prior_im <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~ IM, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.IM <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ IM,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_im,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 1500, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.IM <- lapply(m.IM, function(m) m$Sol)
+s.IM <- do.call(mcmc.list, s.IM)
+z.IM <- do.call(rbind.data.frame, s.IM)
+
+summary(s.IM)
+```
+
+```{r}
+gelman.diag(s.IM[,1:2])
+```
+
+SI
+```{r}
+prior_si <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~ SI, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.SI <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ SI,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_si,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 1500, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.SI <- lapply(m.SI, function(m) m$Sol)
+s.SI <- do.call(mcmc.list, s.SI)
+z.SI <- do.call(rbind.data.frame, s.SI)
+
+summary(s.SI)
+```
+
+```{r}
+gelman.diag(s.SI[,1:2])
+```
+
+TAIL
+```{r}
+prior_tail <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~ TAIL, data = data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 10, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+m.TAIL <- mclapply(1:4, function(i) {
+  MCMCglmm(
+    fixed = climb ~ TAIL,  
+    random = ~ Species + phylo,
+    rcov = ~ trait:units,
+    #rcov = ~ units,
+    data = data, 
+    family = "categorical", 
+    ginverse = list(phylo = inv_phylo_mat$Ainv), 
+    prior = prior_tail,
+    pr = TRUE,
+    pl = TRUE,
+    #nitt = 5000, thin = 100, burnin = 2000,
+    #nitt = 1e+7, thin = 10000, burnin = 3e+6,
+    nitt = 4e+6, thin = 1500, burnin = 3e+5,
+    verbose = FALSE,
+    slice = TRUE,
+    DIC = TRUE)
+}, mc.cores=4)
+
+s.TAIL <- lapply(m.TAIL, function(m) m$Sol)
+s.TAIL <- do.call(mcmc.list, s.TAIL)
+z.TAIL <- do.call(rbind.data.frame, s.TAIL)
+
+summary(s.TAIL)
+```
+
+```{r}
+gelman.diag(s.TAIL[,1:2])
+```
+#### Clean up and quick plot
+Make dataframe with all the posteriors of the models
+300 posterior estimates from each (based on thinning, etc)
+```{r}
+post<- cbind(z.MANUS$MANUS, z.SMI$SMI, z.BI$BI, z.HRI$HRI, z.HEB$HEB, z.OLI$OLI, z.URI$URI, z.CI$CI, z.FRI$FRI, z.GI$GI, z.FEB$FEB, z.TRI$TRI, z.TSI$TSI, z.PES$PES, z.IM$IM, z.SI$SI, z.TAIL$TAIL)
+colnames(post) <- c("MANUS","SMI","BI","HRI","HEB","OLI","URI","CI","FRI","GI","FEB","TRI","TSI","PES","IM","SI","TAIL")
+rownames(post) <- 1:nrow(post)
+post <- as.data.frame(post)
+head(post)
+#write.csv(post, file = "~/User/.csv")
+ post2 <- post %>%
+  gather(frequency)
+ #write.csv(post2, file = "~/User/.csv")
+ #save.image(file = "20180930_Index_individual.R")
+```
+
+Ridge Plot
+```{r}
+library(ggridges)
+ggplot(post2, aes(x = value, y = frequency, fill = frequency)) + 
+geom_density_ridges(aes(group = frequency, fill = frequency),jittered_points = T, position = position_points_jitter(width = 0, height = 0), alpha = 0.7, point_shape = "|", point_size = 1,  calc_ecdf = T) + theme_ridges(center = T)
+
+
+```
+

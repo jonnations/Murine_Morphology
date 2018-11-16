@@ -1,0 +1,185 @@
+---
+title: "brms_ordinal_models_all_Murines"
+author: "Nations"
+date: "11/16/2018"
+output: html_document
+---
+
+Ordinal Models for all 4 predictive variables : MANUS, PES, TAIL, and IM. 
+This uses the "probit" family.
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/User/.....")
+```
+
+I probably don't need all of these packages....
+```{r}
+library(ape)
+library(phytools)
+library(brms)
+library(MCMCglmm)
+getwd()
+```
+#### Load and Prepare Data
+tree
+```{r}
+tree <- read.newick("Tree.nwk")
+is.ultrametric(tree)
+```
+data
+```{r}
+data <- read.csv("ORDINAL_ALL.csv", header=TRUE)
+data <- data[order(factor(data$Species, levels = tree$tip.label)), ]
+```
+
+
+```{r}
+inv.phylo <- MCMCglmm::inverseA(tree, nodes = "TIPS", scale = TRUE)
+A <- solve(inv.phylo$Ainv)
+rownames(A) <- rownames(inv.phylo$Ainv)
+```
+
+
+#### Ordinal Models
+```{r}
+man_fit <- brm(
+  State ~ MANUS + (1|phylo) + (1|Species), data = data, 
+  family = cumulative(link = "probit"), cov_ranef = list(phylo = A),
+  iter = 5000,
+  save_all_pars = TRUE,
+  prior = c(
+  set_prior("normal(0,50)", class = "b"),
+  set_prior("normal(0,50)", class = "Intercept"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "Species"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "phylo")),
+  control = list(adapt_delta = 0.99, max_treedepth = 15),
+  cores = parallel::detectCores(),
+  file = "man_fit.Rds"
+)
+```
+
+
+#### Hypothesis testing for phylogenetic signal.
+See BRMS phylogenetic methods vignette for more information
+```{r}
+hyp <- paste(
+    "sd_phylo__Intercept^2 /", 
+    "(sd_phylo__Intercept^2 + sd_Species__Intercept^2) = 0"
+)
+(man_hyp <- hypothesis(man_fit, hyp, class = NULL))
+```
+
+#### Summary and Plotting
+```{r}
+summary(man_fit)
+plot(marginal_effects(man_fit, "MANUS", categorical = TRUE))
+pp_check(man_fit)
+plot(man_hyp)
+plot(man_fit)
+```
+
+#### Repeat for additional three indices
+```{r}
+tail_fit <- brm(
+  State ~ TAIL + (1|phylo) + (1|Species), data = data, 
+  family = cumulative(link = "probit"), cov_ranef = list(phylo = A),
+  iter = 5000,
+  save_all_pars = TRUE,
+  prior = c(
+  set_prior("normal(0,50)", class = "b"),
+  set_prior("normal(0,50)", class = "Intercept"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "Species"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "phylo")),
+  control = list(adapt_delta = 0.99, max_treedepth = 15),
+  cores = parallel::detectCores(),
+  file = "tail_fit.Rds"
+)
+```
+
+```{r}
+hyp <- paste(
+    "sd_phylo__Intercept^2 /", 
+    "(sd_phylo__Intercept^2 + sd_Species__Intercept^2) = 0"
+)
+(tail_hyp <- hypothesis(tail_fit, hyp, class = NULL))
+```
+
+```{r}
+summary(tail_fit)
+plot(marginal_effects(tail_fit, "TAIL", categorical = TRUE))
+pp_check(tail_fit)
+plot(tail_hyp)
+plot(tail_fit)
+```
+
+
+
+
+```{r}
+im_fit <- brm(
+  State ~ IM + (1|phylo) + (1|Species), data = data, 
+  family = cumulative(link = "probit"), cov_ranef = list(phylo = A),
+  iter = 5000,
+  save_all_pars = TRUE,
+  prior = c(
+  set_prior("normal(0,50)", class = "b"),
+  set_prior("normal(0,50)", class = "Intercept"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "Species"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "phylo")),
+  control = list(adapt_delta = 0.99, max_treedepth = 15),
+  cores = parallel::detectCores(),
+  file = "im_fit.Rds"
+)
+```
+
+```{r}
+hyp <- paste(
+    "sd_phylo__Intercept^2 /", 
+    "(sd_phylo__Intercept^2 + sd_Species__Intercept^2) = 0"
+)
+(im_hyp <- hypothesis(im_fit, hyp, class = NULL))
+```
+
+```{r}
+summary(im_fit)
+plot(marginal_effects(im_fit, "IM", categorical = TRUE))
+pp_check(im_fit)
+plot(im_hyp)
+plot(im_fit)
+```
+
+
+
+
+```{r}
+pes_fit <- brm(
+  State ~ PES + (1|phylo) + (1|Species), data = data, 
+  family = cumulative(link = "probit"), cov_ranef = list(phylo = A),
+  iter = 5000,
+  save_all_pars = TRUE,
+  prior = c(
+  set_prior("normal(0,50)", class = "b"),
+  set_prior("normal(0,50)", class = "Intercept"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "Species"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "phylo")),
+  control = list(adapt_delta = 0.99, max_treedepth = 15),
+  cores = parallel::detectCores(),
+  file = "pes_fit.Rds"
+)
+```
+
+```{r}
+hyp <- paste(
+    "sd_phylo__Intercept^2 /", 
+    "(sd_phylo__Intercept^2 + sd_Species__Intercept^2) = 0"
+)
+(pes_hyp <- hypothesis(pes_fit, hyp, class = NULL))
+```
+
+```{r}
+summary(pes_fit)
+plot(marginal_effects(pes_fit, "PES", categorical = TRUE))
+pp_check(pes_fit)
+plot(pes_hyp)
+plot(pes_fit)
+```
