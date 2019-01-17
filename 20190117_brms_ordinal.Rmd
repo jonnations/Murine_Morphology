@@ -1,0 +1,385 @@
+---
+title: "Big_Run_BRMS"
+output: html_document
+---
+
+Bayesian ordinal mixed models for categorical murine climbing data
+
+#### Warning
+This takes a long time to run
+
+Set root directory
+```{r}
+knitr::opts_knit$set(root.dir = "~/Documents/....")
+```
+
+
+```{r}
+library(ape)
+library(geiger)
+library(phytools)
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(MCMCglmm)
+library(tidyr)
+library(coda)
+library(parallel)
+library(ggridges)
+library(mulTree)
+library(brms)
+library(cowplot)
+```
+
+```{r}
+getwd()
+```
+
+reading in a sample of 4000 trees, and subsampling.
+```{r}
+trees <- read.nexus("4000.trees")
+tree_samp <- sample(trees, size = 100)
+#test_samp <- sample(trees, size = 2)
+tree <- read.newick("Tree.nwk")
+```
+
+brms data
+```{r}
+data <- read.csv("ORDINAL_ALL.csv", header=TRUE)
+
+data <- data[order(factor(data$Species, levels = tree$tip.label)), ]
+```
+
+
+
+# Now BRMS loops
+
+Hypothesis for phylo signal
+```{r}
+hyp <- paste(
+    "sd_phylo__Intercept^2 /", 
+    "(sd_phylo__Intercept^2 + sd_Species__Intercept^2) = 0")
+```
+
+Trees for BRMS
+```{r}
+inverse<-list()
+As <- list()
+
+for (i in 1:length(tree_samp) ) {
+  inverse[[i]] <- inverseA(tree_samp[[i]], nodes = "TIPS", scale = TRUE)
+  x <- solve(inverse[[i]]$Ainv)
+  rownames(x) <- rownames(inverse[[i]]$Ainv)
+  As[[i]] <- x
+}
+
+
+#str(As)
+```
+
+####MANUS
+```{r}
+m.fit <- brm(
+  State ~ MANUS + (1|phylo) + (1|Species), data = data, 
+  family = cumulative(link = "probit"), cov_ranef = list(phylo = As[[1]]),
+  iter = 5000,
+  save_all_pars = TRUE,
+  prior = c(
+  set_prior("normal(0,50)", class = "b"),
+  set_prior("normal(0,50)", class = "Intercept"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "Species"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "phylo")),
+  control = list(adapt_delta = 0.99, max_treedepth = 15)
+)
+```
+
+
+```{r}
+m.fits <- vector("list", 100) 
+for (i in seq_along(m.fits)) {
+m.fits[[i]] <- update(m.fit,
+                      cov_ranef = list(phylo = As[[i]],
+                      cores = 4)
+)
+}
+m.fits_comb <- combine_models(m.fits[[i]])
+```
+
+```{r}
+summary(m.fits_comb)
+plot(m.fits_comb)
+plot(marginal_effects(m.fits_comb, "MANUS", categorical = TRUE))
+pp_check(m.fits_comb)
+(man_hyp <- hypothesis(m.fits_comb, hyp, class = NULL))
+plot(man_hyp)
+```
+
+
+#### IM
+```{r}
+im.fit <- brm(
+  State ~ IM + (1|phylo) + (1|Species), data = data, 
+  family = cumulative(link = "probit"), cov_ranef = list(phylo = As[[1]]),
+  iter = 5000,
+  save_all_pars = TRUE,
+  prior = c(
+  set_prior("normal(0,50)", class = "b"),
+  set_prior("normal(0,50)", class = "Intercept"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "Species"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "phylo")),
+  control = list(adapt_delta = 0.99, max_treedepth = 15)
+)
+```
+
+```{r}
+im.fits <- vector("list", 100) 
+for (i in seq_along(im.fits)) {
+im.fits[[i]] <- update(im.fit,
+                      cov_ranef = list(phylo = As[[i]],
+                      cores = 4)
+)
+}
+im.fits_comb <- combine_models(im.fits[[i]])
+```
+
+```{r}
+summary(im.fits_comb)
+plot(im.fits_comb)
+plot(marginal_effects(im.fits_comb, "IM", categorical = TRUE))
+pp_check(im.fits_comb)
+(im_hyp <- hypothesis(im.fits_comb, hyp, class = NULL))
+plot(im_hyp)
+```
+
+#### PES
+
+```{r}
+pes.fit <- brm(
+  State ~ PES + (1|phylo) + (1|Species), data = data, 
+  family = cumulative(link = "probit"), cov_ranef = list(phylo = As[[1]]),
+  iter = 5000,
+  save_all_pars = TRUE,
+  prior = c(
+  set_prior("normal(0,50)", class = "b"),
+  set_prior("normal(0,50)", class = "Intercept"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "Species"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "phylo")),
+  control = list(adapt_delta = 0.99, max_treedepth = 15)
+)
+```
+
+
+```{r}
+pes.fits <- vector("list", 100) 
+for (i in seq_along(pes.fits)) {
+pes.fits[[i]] <- update(pes.fit,
+                      cov_ranef = list(phylo = As[[i]],
+                      cores = 4)
+)
+}
+pes.fits_comb <- combine_models(pes.fits[[i]])
+```
+
+```{r}
+summary(pes.fits_comb)
+plot(pes.fits_comb)
+plot(marginal_effects(pes.fits_comb, "PES", categorical = TRUE))
+pp_check(pes.fits_comb)
+(pes_hyp <- hypothesis(pes.fits_comb, hyp, class = NULL))
+plot(pes_hyp)
+```
+
+
+#### TAIL
+
+```{r}
+tail.fit <- brm(
+  State ~ TAIL + (1|phylo) + (1|Species), data = data, 
+  family = cumulative(link = "probit"), cov_ranef = list(phylo = As[[1]]),
+  iter = 5000,
+  save_all_pars = TRUE,
+  prior = c(
+  set_prior("normal(0,50)", class = "b"),
+  set_prior("normal(0,50)", class = "Intercept"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "Species"),
+  set_prior("normal(0,1.5)", class = "sd", coef = "Intercept", group = "phylo")),
+  control = list(adapt_delta = 0.99, max_treedepth = 15)
+)
+```
+
+
+```{r}
+tail.fits <- vector("list", 100) 
+for (i in seq_along(tail.fits)) {
+tail.fits[[i]] <- update(tail.fit,
+                      cov_ranef = list(phylo = As[[i]],
+                      cores = 4)
+)
+}
+tail.fits_comb <- combine_models(tail.fits[[i]])
+```
+
+```{r}
+summary(tail.fits_comb)
+plot(tail.fits_comb)
+plot(marginal_effects(tail.fits_comb, "TAIL", categorical = TRUE))
+pp_check(tail.fits_comb)
+(tail_hyp <- hypothesis(tail.fits_comb, hyp, class = NULL))
+plot(tail_hyp)
+```
+
+
+#### Density Overlay Plots (Sup figure, Posterior Checks)
+
+```{r}
+m_pp <- pp_check(m.fits_comb, nsamples = 100)
+i_pp <- pp_check(im.fits_comb, nsamples = 100)
+p_pp <- pp_check(pes.fits_comb, nsamples = 100)
+t_pp <- pp_check(tail.fits_comb, nsamples = 100)
+```
+
+```{r}
+m_p <- m_pp  + labs(title = "MANUS", center = TRUE) + theme(axis.text.x=element_blank())
+```
+
+```{r}
+i_p <- i_pp  + labs(title = "IM", center = TRUE) + theme(axis.text.x=element_blank())
+```
+
+```{r}
+p_p <- p_pp  + labs(title = "PES", center = TRUE) + theme(axis.text.x=element_blank())
+```
+
+```{r}
+t_p <- t_pp  + labs(title = "TAIL", center = TRUE) + theme(axis.text.x=element_blank())
+```
+
+```{r}
+ppc_plot <- plot_grid(m_p, i_p, p_p, t_p, ncol = 2, nrow = 2)
+save_plot("20181101_PPcheck.pdf", ppc_plot, base_width = 7, base_height = 3.5)
+```
+
+
+
+#### Marginal Effects Plots! 
+
+Manus
+```{r}
+m_eff <- marginal_effects(m.fits_comb, "MANUS", categorical = T, probs = c(0.1, 0.9))
+```
+
+```{r}
+mem_plot <- plot(m_eff, plot = FALSE)[[1]] + 
+scale_color_manual(labels = c("Terrestrial", "General", "Arboreal" ), 
+                  values = c("1"="#d95f02", 
+                                   "2"="#7570b3", 
+                                   "3"="#1b9e77")) +
+scale_fill_manual(labels = c("Terrestrial", "General", "Arboreal" ), 
+                  values = c("1"="#d95f02", "2"="#7570b3", "3"="#1b9e77"),guide = F) + 
+labs(x = "MANUS Index",
+     center = F,
+    color = "State") +
+  theme_minimal() + 
+  theme_ridges(center = T) +
+  theme(axis.title.y = element_blank(), axis.title.x = element_text(size=7), axis.text.y  = element_text(size=4), axis.text.x = element_text(size=4),legend.position="none") 
+
+mem_plot
+
+output_file = "20181101_m_eff_MANUS.pdf"
+
+ggsave(output_file, width = 9, height = 6)
+```
+
+IM
+```{r}
+i_eff <- marginal_effects(im.fits_comb, "IM", categorical = T, probs = c(0.1, 0.9))
+```
+
+Looks good!
+```{r}
+mei_plot <- plot(i_eff, plot = FALSE)[[1]] + 
+scale_color_manual(labels = c("Terrestrial", "General", "Arboreal" ), 
+                  values = c("1"="#d95f02", 
+                                   "2"="#7570b3", 
+                                   "3"="#1b9e77")) +
+scale_fill_manual(labels = c("Terrestrial", "General", "Arboreal" ), 
+                  values = c("1"="#d95f02", "2"="#7570b3", "3"="#1b9e77"),                      guide = F) + 
+labs(x = "IM Index",
+     center = F,
+    color = "State") +
+  #coord_cartesian(xlim=c(0.6, 1)) +
+  theme_minimal() + 
+  theme_ridges(center = T) +
+    theme(axis.title.y = element_blank(), axis.title.x = element_text(size=7), axis.text.y  = element_text(size=4), axis.text.x = element_text(size=4), legend.position="none")
+
+mei_plot
+
+output_file = "20181101_i_eff_IM.pdf"
+
+ggsave(output_file, width = 9, height = 6)
+```
+
+PES
+
+```{r}
+p_eff <- marginal_effects(pes.fits_comb, "PES", categorical = T, probs = c(0.1, 0.9))
+```
+
+Looks good!
+```{r}
+mep_plot <- plot(p_eff, plot = FALSE)[[1]] + 
+scale_color_manual(labels = c("Terrestrial", "General", "Arboreal" ), 
+                  values = c("1"="#d95f02", 
+                                   "2"="#7570b3", 
+                                   "3"="#1b9e77")) +
+scale_fill_manual(labels = c("Terrestrial", "General", "Arboreal" ), 
+                  values = c("1"="#d95f02", "2"="#7570b3", "3"="#1b9e77"),                      guide = F) + 
+labs(x = "PES Index",
+    center = F,
+    color = "State") +
+  theme_minimal() + 
+  theme_ridges(center = T) +  
+  theme(axis.title.y = element_blank(), axis.title.x = element_text(size=7), axis.text.y  = element_text(size=4), axis.text.x = element_text(size=4),legend.position="none") 
+mep_plot
+
+output_file = "20181101_p_eff_PES.pdf"
+
+ggsave(output_file, width = 9, height = 6)
+```
+
+TAIL
+```{r}
+t_eff <- marginal_effects(tail.fits_comb, "TAIL", categorical = T, probs = c(0.1, 0.9))
+```
+
+Looking good
+```{r}
+met_plot <- plot(t_eff, plot = FALSE)[[1]] + 
+scale_color_manual(labels = c("Terrestrial", "General", "Arboreal" ), 
+                  values = c("1"="#d95f02", 
+                                   "2"="#7570b3", 
+                                   "3"="#1b9e77")) +
+scale_fill_manual(labels = c("Terrestrial", "General", "Arboreal" ), 
+                  values = c("1"="#d95f02", "2"="#7570b3", "3"="#1b9e77"),                      guide = F) + 
+labs(x = "TAIL Index",
+     center = F,
+    color = "State") +
+  theme_minimal() + 
+  theme_ridges(center = T) +
+      theme(axis.title.y = element_blank(), axis.title.x = element_text(size=7), axis.text.y  = element_text(size=4), axis.text.x = element_text(size=4), legend.position="none")
+
+met_plot
+
+output_file = "20181101_t_eff_TAIL.pdf"
+
+ggsave(output_file, width = 9, height = 6)
+```
+
+PLOT ALL
+
+```{r}
+me_plot <- plot_grid(mem_plot,mei_plot,mep_plot,met_plot, ncol = 2, nrow = 2 )
+save_plot("20181101_me_plot.pdf", me_plot, base_width = 8, base_height = 4)
+```
+
+
