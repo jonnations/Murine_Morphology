@@ -1,0 +1,696 @@
+---
+title: "Running MCMCglmm with mulTree and 100 Random Trees"
+author: "Nations"
+date: "11/01/2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+Working on the BIG script to run both MulTree and brms over 100 randomly sampled trees
+Starting at 1022am 2 November
+
+```{r}
+knitr::opts_knit$set(root.dir = "~/Documents/Projects/Philippines/Philippine_morphology/Big_Run")
+```
+
+
+```{r}
+library(ape)
+library(geiger)
+library(phytools)
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(MCMCglmm)
+library(tidyr)
+library(coda)
+library(parallel)
+library(ggridges)
+library(mulTree)
+library(brms)
+library(cowplot)
+```
+
+
+
+```{r}
+getwd()
+```
+
+reading in a sample of 4000 trees, and subsampling.
+```{r}
+trees <- read.nexus("4000.trees")
+tree_samp <- sample(trees, size = 100)
+#test_samp <- sample(trees, size = 2)
+tree <- read.newick("Tree.nwk")
+```
+
+brms data
+```{r}
+data <- read.csv("ORDINAL_ALL.csv", header=TRUE)
+
+data <- data[order(factor(data$Species, levels = tree$tip.label)), ]
+```
+
+
+mul_data 
+```{r}
+mul_data <- read.csv("Phil_MulTree.csv", header=T)
+# reorder data by tree labels
+mul_data <- mul_data[order(factor(mul_data$Species, levels = tree$tip.label)), ]
+```
+
+
+#### Universal Parameters
+```{r}
+mulTree_data <- as.mulTree(data = mul_data, tree = tree_samp, taxa = "Species", rand.terms = ~ Species + phylo)
+
+## The MCMC parameters (generations, sampling, burnin)
+my_parameters <- c(1000000, 2000, 100000)
+#my_parameters <- c(10000, 100, 5000)
+```
+
+MANUS
+```{r}
+manus_formula <-climb ~ MANUS
+
+prior_MANUS <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~MANUS, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = manus_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.MANUS_tree",
+        priors = prior_MANUS,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.MANUS <- read.mulTree("z.MANUS_tree")
+str(z.MANUS)
+MANUS_results <- summary(z.MANUS, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+MANUS_results
+```
+
+SMI
+```{r}
+smi_formula <-climb ~ SMI
+
+prior_SMI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~SMI, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = smi_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.SMI_tree",
+        priors = prior_SMI,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.SMI <- read.mulTree("z.SMI_tree")
+str(z.SMI)
+SMI_results <- summary(z.SMI, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+SMI_results
+```
+
+BI
+```{r}
+bi_formula <-climb ~ BI
+
+prior_BI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~BI, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = bi_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.BI_tree",
+        priors = prior_BI,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.BI <- read.mulTree("z.BI_tree")
+str(z.BI)
+BI_results <- summary(z.BI, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+BI_results
+```
+
+HRI
+```{r}
+hri_formula <-climb ~ HRI
+
+prior_HRI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~HRI, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = hri_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.HRI_tree",
+        priors = prior_HRI,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.HRI <- read.mulTree("z.HRI_tree")
+str(z.HRI)
+HRI_results <- summary(z.HRI, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+HRI_results
+```
+
+HEB
+```{r}
+heb_formula <-climb ~ HEB
+
+prior_HEB <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~HEB, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = heb_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.HEB_tree",
+        priors = prior_HEB,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.HEB <- read.mulTree("z.HEB_tree")
+str(z.HEB)
+HEB_results <- summary(z.HEB, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+HEB_results
+```
+
+OLI
+```{r}
+oli_formula <-climb ~ OLI
+
+prior_OLI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~OLI, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = oli_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.OLI_tree",
+        priors = prior_OLI,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.OLI <- read.mulTree("z.OLI_tree")
+str(z.OLI)
+OLI_results <- summary(z.OLI, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+OLI_results
+```
+
+URI
+```{r}
+uri_formula <-climb ~ URI
+
+prior_URI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~URI, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = uri_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.URI_tree",
+        priors = prior_URI,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.URI <- read.mulTree("z.URI_tree")
+str(z.URI)
+URI_results <- summary(z.URI, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+URI_results
+```
+
+CI
+```{r}
+ci_formula <-climb ~ CI
+
+prior_CI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~CI, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = ci_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.CI_tree",
+        priors = prior_CI,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.CI <- read.mulTree("z.CI_tree")
+str(z.CI)
+CI_results <- summary(z.CI, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+CI_results
+```
+
+FRI
+```{r}
+fri_formula <-climb ~ FRI
+
+prior_FRI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~FRI, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = fri_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.FRI_tree",
+        priors = prior_FRI,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.FRI <- read.mulTree("z.FRI_tree")
+str(z.FRI)
+FRI_results <- summary(z.FRI, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+FRI_results
+```
+
+GI
+```{r}
+gi_formula <-climb ~ GI
+
+prior_GI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~GI, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = gi_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.GI_tree",
+        priors = prior_GI,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.GI <- read.mulTree("z.GI_tree")
+str(z.GI)
+GI_results <- summary(z.GI, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+GI_results
+```
+
+FEB
+```{r}
+feb_formula <-climb ~ FEB
+
+prior_FEB <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~FEB, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = feb_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.FEB_tree",
+        priors = prior_FEB,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.FEB <- read.mulTree("z.FEB_tree")
+str(z.FEB)
+FEB_results <- summary(z.FEB, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+FEB_results
+```
+
+TRI
+```{r}
+tri_formula <-climb ~ TRI
+
+prior_TRI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~TRI, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = tri_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.TRI_tree",
+        priors = prior_TRI,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.TRI <- read.mulTree("z.TRI_tree")
+str(z.TRI)
+TRI_results <- summary(z.TRI, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+TRI_results
+```
+
+TSI
+```{r}
+tsi_formula <-climb ~ TSI
+
+prior_TSI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~TSI, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = tsi_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.TSI_tree",
+        priors = prior_TSI,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.TSI <- read.mulTree("z.TSI_tree")
+str(z.TSI)
+TSI_results <- summary(z.TSI, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+TSI_results
+```
+
+PES
+```{r}
+pes_formula <-climb ~ PES
+
+prior_PES <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~PES, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = pes_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.PES_tree",
+        priors = prior_PES,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.PES <- read.mulTree("z.PES_tree")
+str(z.PES)
+PES_results <- summary(z.PES, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+PES_results
+```
+
+IM
+```{r}
+im_formula <-climb ~ IM
+
+prior_IM <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~IM, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = im_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.IM_tree",
+        priors = prior_IM,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.IM <- read.mulTree("z.IM_tree")
+str(z.IM)
+IM_results <- summary(z.IM, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+IM_results
+```
+
+SI
+```{r}
+si_formula <-climb ~ SI
+
+prior_SI <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~SI, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = si_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.SIS_tree",
+        priors = prior_SI,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.SI <- read.mulTree("z.SIS_tree")
+str(z.SI)
+SI_results <- summary(z.SI, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+SI_results
+```
+
+TAIL
+```{r}
+tail_formula <-climb ~ TAIL
+
+prior_TAIL <- list(
+    B = list(mu = rep(0, 2), 
+             V=gelman.prior(~TAIL, data = mul_data, scale = sqrt(pi^2/3+1))), 
+    G = list(G1 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1),   
+             G2 = list(V = 1, nu = 100, alpha.mu = 0, alpha.V = 1)),
+    R = list(V = 1, fix = 1) 
+)
+
+mulTree(mulTree.data = mulTree_data,
+        formula = tail_formula,
+        #random = ~ Species + phylo,
+        rcov = ~ trait:units,
+        family = "categorical",
+        parameters = my_parameters,
+        ESS = 20,
+        chains = 2,
+        verbose = FALSE,
+        output = "z.TAIL_tree",
+        priors = prior_TAIL,
+        parallel = "SOCK"
+        )
+```
+
+```{r}
+z.TAIL <- read.mulTree("z.TAIL_tree")
+str(z.TAIL)
+TAIL_results <- summary(z.TAIL, use.hdr = T, cent.tend = mean, prob = c(95, 5))
+TAIL_results
+```
+
+
+
+#### Get Beta Posteriors from all the models and Save
+```{r}
+post<- cbind(z.MANUS$MANUS, z.SMI$SMI, z.BI$BI, z.HRI$HRI, z.HEB$HEB, z.OLI$OLI, z.URI$URI, z.CI$CI, z.FRI$FRI, z.GI$GI, z.FEB$FEB, z.TRI$TRI, z.TSI$TSI, z.PES$PES, z.IM$IM, z.SI$SI, z.TAIL$TAIL)
+colnames(post) <- c("MANUS","SMI","BI","HRI","HEB","OLI","URI","CI","FRI","GI","FEB","TRI","TSI","PES","IM","SI","TAIL")
+rownames(post) <- 1:nrow(post)
+post <- as.data.frame(post)
+head(post)
+write.csv(post, file = "20181101_posteriors.csv")
+ post2 <- post %>%
+  gather(frequency)
+ write.csv(post2, file = "20181101_tidy_post.csv")
+```
+
+
+Read in posteriors and plot, removing "non significant" variables
+```{r}
+tpost <- read.csv("20181101_tidy_post.csv", header=T)
+colnames(tpost)[colnames(tpost)=="frequency"] <- "m"
+tpost$m = reorder(tpost$m, tpost$value, mean)
+
+tpost2 <- tpost[ ! tpost$m %in% c("URI","TRI", "HRI", "GI", "FRI", "OLI", "FEB"), ]
+```
+
+
+Plotting figure 2
+```{r}
+ ggplot(tpost2, aes(x = value, y = m)) + 
+  stat_density_ridges(quantile_lines = TRUE, quantiles = c(0.035, 0.975), rel_min_height = 0.02, scale = 2.1, calc_ecdf = T) +
+  geom_vline(xintercept=0, linetype = "dotted" ) + 
+  scale_y_discrete(expand = c(0.06, 0)) +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  coord_cartesian(xlim=c(-70, 95)) +
+  labs(x = expression("Posterior Probability of Regression Coefficient "*beta),y = "Index", center = TRUE) +
+  theme_minimal(base_size = 11) + 
+  theme(legend.position="none") 
+
+output_file = "20181101_ALLTREE_index_grey_8.pdf"
+
+ggsave(output_file, width = 7, height = 4)
+```
+
+
+
+
