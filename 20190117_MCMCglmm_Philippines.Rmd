@@ -675,7 +675,7 @@ tpost2 <- tpost[ ! tpost$m %in% c("URI","TRI", "HRI", "GI", "FRI", "OLI", "FEB")
 Plotting figure 2
 ```{r}
  ggplot(tpost2, aes(x = value, y = m)) + 
-  stat_density_ridges(quantile_lines = TRUE, quantiles = c(0.035, 0.975), rel_min_height = 0.02, scale = 2.1, calc_ecdf = T) +
+  stat_density_ridges(quantile_lines = TRUE, quantiles = c(0.025, 0.975), rel_min_height = 0.02, scale = 2.1, calc_ecdf = T) +
   geom_vline(xintercept=0, linetype = "dotted" ) + 
   scale_y_discrete(expand = c(0.06, 0)) +
   scale_x_continuous(expand = c(0.01, 0)) +
